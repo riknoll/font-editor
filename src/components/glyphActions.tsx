@@ -42,9 +42,9 @@ export const GlyphActions = (props: GlyphActionsProps) => {
 
     return (
         <div>
-            <button onClick={onCopyGlyph} aria-label="Copy"><Icon iconName="Copy" /></button>
-            <button onClick={onPasteGlyph} aria-label="Paste"><Icon iconName="Paste" /></button>
-            <button onClick={onClearGlyph} aria-label="Clear"><Icon iconName="Delete" /></button>
+            <button onClick={onCopyGlyph} aria-label="Copy" title="Copy"><Icon iconName="Copy" /></button>
+            <button onClick={onPasteGlyph} aria-label="Paste" title="Paste"><Icon iconName="Paste" /></button>
+            <button onClick={onClearGlyph} aria-label="Clear" title="Clear"><Icon iconName="Delete" /></button>
         </div>
     );
 }
