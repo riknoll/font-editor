@@ -24,6 +24,10 @@ export function createGlyph(font: FontMeta, character: string): Glyph {
     };
 }
 
+export function clearGlyph(g: Glyph) {
+    return g.pixels.fill(0);
+}
+
 export function getPixel(g: Glyph, x: number, y: number) {
     const cellIndex = x + g.width * y;
     const index = cellIndex >> 3;

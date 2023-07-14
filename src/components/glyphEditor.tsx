@@ -4,6 +4,7 @@ import { Font } from "../lib/font";
 import { Glyph } from "../lib/glyph";
 import { GlyphGrid } from "./glyphGrid";
 import { GlyphSelector } from "./glyphSelector";
+import { GlyphActions } from "./glyphActions";
 
 export interface GlyphEditorProps {
     font: Font;
@@ -41,6 +42,11 @@ export const GlyphEditor = (props: GlyphEditorProps) => {
     return (
         <div className={classes.container}>
             <div>
+                <GlyphActions
+                    editing={currentGlyph}
+                    onGlyphChange={onGlyphChange}
+                    onGlyphUpdate={onGlyphUpdate}
+                />
                 <GlyphGrid
                     font={currentFont.meta}
                     editing={currentGlyph}
