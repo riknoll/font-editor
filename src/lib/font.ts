@@ -86,14 +86,13 @@ const MAGIC = 0x68f119db;
  *  [9]    baseline offset
  *  [10]   letter spacing
  *  [11]   word spacing
- * LookupTableEntry (9 bytes):
+ * LookupTableEntry (7 bytes):
  *  [0]    char width
  *  [1]    bitmap width
  *  [2]    bitmap height
  *  [3]    char x offset (signed, relative to left line)
  *  [4]    char y offset (signed, relative to baseline)
  *  [5..6] pixel data start (relative to bitmap section start)
- *  [7..8] pixel data end (relative to bitmap section start)
  */
 export function hexEncodeFont(font: Font) {
     let minChar = font.glyphs[0].character.charCodeAt(0);
@@ -106,7 +105,7 @@ export function hexEncodeFont(font: Font) {
 
     const numGlyphs = maxChar - minChar + 1;
 
-    const headerBuf = new Uint8Array(12 + 9 * numGlyphs);
+    const headerBuf = new Uint8Array(12 + 7 * numGlyphs);
 
     setNumber(headerBuf, NumberFormat.UInt32LE, 0, MAGIC);
     setNumber(headerBuf, NumberFormat.UInt16LE, 4, minChar);
@@ -130,14 +129,13 @@ export function hexEncodeFont(font: Font) {
 
         bitmaps.push(pixels);
 
-        const offset = 12 + 9 * i;
+        const offset = 12 + 7 * i;
         setNumber(headerBuf, NumberFormat.UInt8LE, offset, trimmedGlyph.width + trimmedGlyph.xOffset);
         setNumber(headerBuf, NumberFormat.UInt8LE, offset + 1, trimmedGlyph.width);
         setNumber(headerBuf, NumberFormat.UInt8LE, offset + 2, trimmedGlyph.height);
-        setNumber(headerBuf, NumberFormat.UInt8LE, offset + 3, trimmedGlyph.xOffset);
-        setNumber(headerBuf, NumberFormat.UInt8LE, offset + 4, trimmedGlyph.yOffset);
+        setNumber(headerBuf, NumberFormat.Int8LE, offset + 3, trimmedGlyph.xOffset);
+        setNumber(headerBuf, NumberFormat.Int8LE, offset + 4, trimmedGlyph.yOffset);
         setNumber(headerBuf, NumberFormat.UInt16LE, offset + 5, pixelBytes);
-        setNumber(headerBuf, NumberFormat.UInt16LE, offset + 7, pixelBytes + pixels.length);
 
         pixelBytes += pixels.length;
     }
@@ -154,7 +152,7 @@ export function hexEncodeFont(font: Font) {
     return uint8ArrayToHex(outBuffer);
 }
 
-function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8ClampedArray] | undefined {
+function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8Array] | undefined {
     let minX = glyph.width;
     let maxX = 0;
     let minY = glyph.height;
@@ -175,67 +173,40 @@ function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8ClampedArray] | undef
 
     if (!hasPixel) return undefined;
 
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+
     const newGlyph: Glyph = {
         character: glyph.character,
-        width: maxX - minX,
-        height: maxY - minY,
-        pixels: new Uint8Array((((maxX - minX) * (maxY - minY)) >> 3) + 1),
+        width,
+        height,
+        pixels: null as any,
         xOffset: minX - font.meta.kernWidth,
         yOffset: minY - (font.meta.ascenderHeight + font.meta.defaultHeight)
     };
 
-    for (let x = 0; x < newGlyph.width; x++) {
-        for (let y = 0; y < newGlyph.height; y++) {
-            if (getPixel(glyph, minX + x, minY + y)) {
-                setPixel(newGlyph, x, y, true);
+    const encoded = f4EncodeImg(newGlyph.width, newGlyph.height, (x, y) => getPixel(glyph, minX + x, minY + y) ? 1 : 0);
+
+    return [newGlyph, encoded];
+}
+
+function byteHeight(h: number) {
+    return (h + 7) >> 3
+}
+
+
+function f4EncodeImg(w: number, h: number, getPix: (x: number, y: number) => number) {
+    const columnBytes = byteHeight(h);
+    const out = new Uint8Array(w * columnBytes);
+
+    for (let x = 0; x < w; x++) {
+        for (let y  = 0; y < h; y++) {
+            if (getPix(x, y)) {
+                const index = columnBytes * x + (y >> 3);
+                const mask = 1 << (y & 7)
+                out[index] |= mask;
             }
         }
     }
-
-    const byteString = f4EncodeImg(newGlyph.width, newGlyph.height, 1, (x, y) => getPixel(newGlyph, x, y) ? 1 : 0);
-
-    return [newGlyph, hexToUint8Array(byteString)];
-}
-
-// from pxt
-function f4EncodeImg(w: number, h: number, bpp: number, getPix: (x: number, y: number) => number) {
-    const header = [
-        0x87, bpp,
-        w & 0xff, w >> 8,
-        h & 0xff, h >> 8,
-        0, 0
-    ]
-    let r = header.map(hex2).join("")
-    let ptr = 4
-    let curr = 0
-    let shift = 0
-
-    let pushBits = (n: number) => {
-        curr |= n << shift
-        if (shift === 8 - bpp) {
-            r += hex2(curr)
-            ptr++
-            curr = 0
-            shift = 0
-        } else {
-            shift += bpp
-        }
-    }
-
-    for (let i = 0; i < w; ++i) {
-        for (let j = 0; j < h; ++j)
-            pushBits(getPix(i, j))
-        while (shift !== 0)
-            pushBits(0)
-        if (bpp > 1) {
-            while (ptr & 3)
-                pushBits(0)
-        }
-    }
-
-    return r
-
-    function hex2(n: number) {
-        return ("0" + n.toString(16)).slice(-2)
-    }
+    return out;
 }
