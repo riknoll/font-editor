@@ -18,7 +18,7 @@ interface GestureState {
 
 export const GlyphGrid = (props: GlyphGridProps) => {
     const { font, editing, onGlyphChange, onGlyphUpdate } = props;
-    
+
     const ref = React.useRef(null);
     const gestureState = React.useRef<GestureState>({
         drawing: false,
@@ -59,11 +59,11 @@ export const GlyphGrid = (props: GlyphGridProps) => {
                 }
                 return didChange;
             }
-        
+
             const xStep = dx > 0 ? 1 : -1;
             const yStep = dy > 0 ? 1 : -1;
             const dErr = Math.abs(dy / dx);
-        
+
             let err = 0;
             let y = y0;
             for (let x = x0; xStep > 0 ? x <= x1 : x >= x1; x += xStep) {
@@ -83,7 +83,7 @@ export const GlyphGrid = (props: GlyphGridProps) => {
         const doPaint = (x: number, y: number, on: boolean) => {
             let didChange = false;
 
-            // If we moved more than 1 pixel since the last mouse event, interpolate 
+            // If we moved more than 1 pixel since the last mouse event, interpolate
             if (gestureState.current.lastPosition && (x - gestureState.current.lastPosition.x) ** 2 + (y - gestureState.current.lastPosition.y) ** 2 > 1) {
                 didChange = interpolate(gestureState.current.lastPosition.x, gestureState.current.lastPosition.y, x, y, on);
             }
@@ -116,7 +116,7 @@ export const GlyphGrid = (props: GlyphGridProps) => {
 
         const onPointerUp = (ev: PointerEvent) => {
             if (!gestureState.current.drawing) return;
-    
+
             gestureState.current.drawing = false;
 
             const coord = getEventCoord(ev, canvas, font);
@@ -159,7 +159,7 @@ export const GlyphGrid = (props: GlyphGridProps) => {
             document.removeEventListener("pointerleave", onPointerUp);
             document.removeEventListener("pointermove", onPointerMove);
         };
-    }, [font, editing, onGlyphUpdate]);
+    }, [font, editing, onGlyphUpdate, onGlyphChange]);
 
     let width = 500;
     width = getCellWidth(width, font) * gridColumns(font) + 1;
@@ -220,7 +220,7 @@ function drawGrid(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D, 
     const columns = gridColumns(font);
     const rows = gridRows(font);
     const cellWidth = getCellWidth(canvas.width, font);
-    
+
     // First draw solid black grid lines
     context.beginPath();
     context.setLineDash([]);

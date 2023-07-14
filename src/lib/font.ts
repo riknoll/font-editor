@@ -1,4 +1,5 @@
-import { createGlyph, deserializeGlyph, Glyph, serializeGlyph } from "./glyph";
+import { NumberFormat, hexToUint8Array, setNumber, uint8ArrayToHex } from "./buffer";
+import { createGlyph, deserializeGlyph, getPixel, Glyph, serializeGlyph, setPixel } from "./glyph";
 
 export interface FontMeta {
     monospace?: boolean;
@@ -62,4 +63,179 @@ export function deserializeFont(data: string) {
     const parsed = JSON.parse(data);
 
     return new Font(parsed.meta, parsed.glyphs.map(deserializeGlyph));
+}
+
+const MAGIC = 0x68f119db;
+
+/**
+ * Encoded font format
+ *
+ * Follows the structure of Header -> Lookup Table -> Bitmaps
+ *
+ * Every character in the font gets an entry in the lookup table
+ * that contains glyph metadata and points to the bitmap location.
+ * The address of the entry for each character is relative to the
+ * first character in the font range. Bitmaps are encoded in F4
+ * 1 bpp format, but don't include the header
+ *
+ * Header (12 bytes):
+ *  [0..3] magic
+ *  [4..5] font range start
+ *  [6..7] font range ended
+ *  [8]    line height
+ *  [9]    baseline offset
+ *  [10]   letter spacing
+ *  [11]   word spacing
+ * LookupTableEntry (9 bytes):
+ *  [0]    char width
+ *  [1]    bitmap width
+ *  [2]    bitmap height
+ *  [3]    char x offset (signed, relative to left line)
+ *  [4]    char y offset (signed, relative to baseline)
+ *  [5..6] pixel data start (relative to bitmap section start)
+ *  [7..8] pixel data end (relative to bitmap section start)
+ */
+export function hexEncodeFont(font: Font) {
+    let minChar = font.glyphs[0].character.charCodeAt(0);
+    let maxChar = font.glyphs[0].character.charCodeAt(0);
+
+    for (const glyph of font.glyphs) {
+        minChar = Math.min(minChar, glyph.character.charCodeAt(0));
+        maxChar = Math.max(maxChar, glyph.character.charCodeAt(0));
+    }
+
+    const numGlyphs = maxChar - minChar + 1;
+
+    const headerBuf = new Uint8Array(12 + 9 * numGlyphs);
+
+    setNumber(headerBuf, NumberFormat.UInt32LE, 0, MAGIC);
+    setNumber(headerBuf, NumberFormat.UInt16LE, 4, minChar);
+    setNumber(headerBuf, NumberFormat.UInt16LE, 6, maxChar);
+    setNumber(headerBuf, NumberFormat.UInt8LE, 8, font.meta.ascenderHeight + font.meta.defaultHeight + font.meta.descenderHeight);
+    setNumber(headerBuf, NumberFormat.UInt8LE, 9, font.meta.ascenderHeight + font.meta.defaultHeight);
+    setNumber(headerBuf, NumberFormat.UInt8LE, 10, font.meta.letterSpacing);
+    setNumber(headerBuf, NumberFormat.UInt8LE, 11, font.meta.wordSpacing);
+
+    let pixelBytes = 0;
+    const bitmaps = [];
+    for (let i = 0; i < numGlyphs; i++) {
+        const glyph = font.glyphs.find(g => g.character.charCodeAt(0) === minChar + i);
+        if (!glyph) continue;
+
+        const trimmed = trimGlyph(glyph, font);
+
+        if (!trimmed) continue;
+
+        const [trimmedGlyph, pixels] = trimmed;
+
+        bitmaps.push(pixels);
+
+        const offset = 12 + 9 * i;
+        setNumber(headerBuf, NumberFormat.UInt8LE, offset, trimmedGlyph.width + trimmedGlyph.xOffset);
+        setNumber(headerBuf, NumberFormat.UInt8LE, offset + 1, trimmedGlyph.width);
+        setNumber(headerBuf, NumberFormat.UInt8LE, offset + 2, trimmedGlyph.height);
+        setNumber(headerBuf, NumberFormat.UInt8LE, offset + 3, trimmedGlyph.xOffset);
+        setNumber(headerBuf, NumberFormat.UInt8LE, offset + 4, trimmedGlyph.yOffset);
+        setNumber(headerBuf, NumberFormat.UInt16LE, offset + 5, pixelBytes);
+        setNumber(headerBuf, NumberFormat.UInt16LE, offset + 7, pixelBytes + pixels.length);
+
+        pixelBytes += pixels.length;
+    }
+
+    const outBuffer = new Uint8Array(headerBuf.length + pixelBytes);
+    outBuffer.set(headerBuf, 0);
+
+    let offset = 0;
+    for (const bitmap of bitmaps) {
+        outBuffer.set(bitmap, headerBuf.length + offset);
+        offset += bitmap.length;
+    }
+
+    return uint8ArrayToHex(outBuffer);
+}
+
+function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8ClampedArray] | undefined {
+    let minX = glyph.width;
+    let maxX = 0;
+    let minY = glyph.height;
+    let maxY = 0;
+
+    let hasPixel = false;
+    for (let x = 0; x < glyph.width; x++) {
+        for (let y = 0; y < glyph.height; y++) {
+            if (getPixel(glyph, x, y)) {
+                minX = Math.min(x, minX);
+                minY = Math.min(y, minY);
+                maxX = Math.max(x, maxX);
+                maxY = Math.max(y, maxY);
+                hasPixel = true;
+            }
+        }
+    }
+
+    if (!hasPixel) return undefined;
+
+    const newGlyph: Glyph = {
+        character: glyph.character,
+        width: maxX - minX,
+        height: maxY - minY,
+        pixels: new Uint8Array((((maxX - minX) * (maxY - minY)) >> 3) + 1),
+        xOffset: minX - font.meta.kernWidth,
+        yOffset: minY - (font.meta.ascenderHeight + font.meta.defaultHeight)
+    };
+
+    for (let x = 0; x < newGlyph.width; x++) {
+        for (let y = 0; y < newGlyph.height; y++) {
+            if (getPixel(glyph, minX + x, minY + y)) {
+                setPixel(newGlyph, x, y, true);
+            }
+        }
+    }
+
+    const byteString = f4EncodeImg(newGlyph.width, newGlyph.height, 1, (x, y) => getPixel(newGlyph, x, y) ? 1 : 0);
+
+    return [newGlyph, hexToUint8Array(byteString)];
+}
+
+// from pxt
+function f4EncodeImg(w: number, h: number, bpp: number, getPix: (x: number, y: number) => number) {
+    const header = [
+        0x87, bpp,
+        w & 0xff, w >> 8,
+        h & 0xff, h >> 8,
+        0, 0
+    ]
+    let r = header.map(hex2).join("")
+    let ptr = 4
+    let curr = 0
+    let shift = 0
+
+    let pushBits = (n: number) => {
+        curr |= n << shift
+        if (shift === 8 - bpp) {
+            r += hex2(curr)
+            ptr++
+            curr = 0
+            shift = 0
+        } else {
+            shift += bpp
+        }
+    }
+
+    for (let i = 0; i < w; ++i) {
+        for (let j = 0; j < h; ++j)
+            pushBits(getPix(i, j))
+        while (shift !== 0)
+            pushBits(0)
+        if (bpp > 1) {
+            while (ptr & 3)
+                pushBits(0)
+        }
+    }
+
+    return r
+
+    function hex2(n: number) {
+        return ("0" + n.toString(16)).slice(-2)
+    }
 }

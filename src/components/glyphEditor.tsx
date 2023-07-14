@@ -36,7 +36,7 @@ export const GlyphEditor = (props: GlyphEditorProps) => {
         setCurrentFont(updated);
         onFontUpdate(updated);
         setCurrentGlyph(glyph);
-    }, [currentFont]);
+    }, [currentFont, onFontUpdate]);
 
     return (
         <div className={classes.container}>

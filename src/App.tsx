@@ -1,7 +1,7 @@
 import React from 'react';
 import './App.css';
 import { GlyphEditor } from './components/glyphEditor';
-import { deserializeFont, Font, serializeFont } from './lib/font';
+import { deserializeFont, Font, hexEncodeFont, serializeFont } from './lib/font';
 
 const LOCAL_FONT_KEY = "LOCAL_FONT";
 
@@ -28,6 +28,7 @@ function App() {
     const onFontUpdate = React.useCallback((newFont: Font) => {
         font = newFont;
         localStorage[LOCAL_FONT_KEY] = serializeFont(newFont);
+        console.log(hexEncodeFont(font));
     }, []);
 
     return (
