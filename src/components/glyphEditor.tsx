@@ -39,13 +39,20 @@ export const GlyphEditor = (props: GlyphEditorProps) => {
         setCurrentGlyph(glyph);
     }, [currentFont, onFontUpdate]);
 
+    const onFontSettingsChange = React.useCallback((newFont: Font) => {
+        setCurrentFont(newFont);
+        onFontUpdate(newFont);
+        setCurrentGlyph(newFont.glyphs.find(g => g.character === currentGlyph.character)!)
+    }, [onFontUpdate, currentGlyph]);
+
     return (
         <div className={classes.container}>
             <div>
                 <GlyphActions
                     editing={currentGlyph}
-                    onGlyphChange={onGlyphChange}
                     onGlyphUpdate={onGlyphUpdate}
+                    font={currentFont}
+                    onFontUpdate={onFontSettingsChange}
                 />
                 <GlyphGrid
                     font={currentFont.meta}

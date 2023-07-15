@@ -2,13 +2,11 @@ import React from 'react';
 import './App.css';
 import { GlyphEditor } from './components/glyphEditor';
 import { deserializeFont, Font, hexEncodeFont, serializeFont } from './lib/font';
-import { initializeIcons } from '@fluentui/font-icons-mdl2';
 
 const LOCAL_FONT_KEY = "LOCAL_FONT";
 
 let font: Font | undefined;
 
-initializeIcons();
 
 if (localStorage[LOCAL_FONT_KEY]) {
     font = deserializeFont(localStorage[LOCAL_FONT_KEY]);

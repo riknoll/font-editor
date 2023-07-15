@@ -28,7 +28,6 @@ export const GlyphGrid = (props: GlyphGridProps) => {
 
     React.useEffect(() => {
         const canvas = ref.current!;
-        let currentGlyph = editing;
 
         let animationRef: number | undefined;
 
@@ -36,13 +35,13 @@ export const GlyphGrid = (props: GlyphGridProps) => {
             if (animationRef) cancelAnimationFrame(animationRef);
 
             animationRef = requestAnimationFrame(() => {
-                drawCanvas(canvas, font, currentGlyph);
+                drawCanvas(canvas, font, editing);
             });
         };
 
         const setPixelCore = (x: number, y: number, on: boolean) => {
-            if (getPixel(currentGlyph, x, y) === on) return false;
-            setPixel(currentGlyph, x, y, on);
+            if (getPixel(editing, x, y) === on) return false;
+            setPixel(editing, x, y, on);
             return true;
         }
 
@@ -94,7 +93,7 @@ export const GlyphGrid = (props: GlyphGridProps) => {
             if (didChange) {
                 redraw();
                 onGlyphChange({
-                    ...currentGlyph
+                    ...editing
                 });
                 gestureState.current.didChange = true;
             }
@@ -109,7 +108,7 @@ export const GlyphGrid = (props: GlyphGridProps) => {
 
             gestureState.current.drawing = true;
             gestureState.current.didChange = false;
-            gestureState.current.erasing = getPixel(currentGlyph, coord.x, coord.y);
+            gestureState.current.erasing = getPixel(editing, coord.x, coord.y);
             doPaint(coord.x, coord.y, !gestureState.current.erasing);
             gestureState.current.lastPosition = coord;
         };
@@ -128,7 +127,7 @@ export const GlyphGrid = (props: GlyphGridProps) => {
 
             if (gestureState.current.didChange) {
                 onGlyphUpdate({
-                    ...currentGlyph
+                    ...editing
                 });
             }
         };
@@ -271,6 +270,15 @@ function drawGrid(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D, 
     context.moveTo(0, gridToPixel(cellWidth, font.ascenderHeight + font.defaultHeight));
     context.lineTo(columns * cellWidth + 1, gridToPixel(cellWidth, font.ascenderHeight + font.defaultHeight));
 
+    context.stroke();
+
+    context.beginPath();
+    context.strokeStyle = "green";
+    context.moveTo(0, gridToPixel(cellWidth, font.ascenderHeight + font.defaultHeight - font.xHeight));
+    context.lineTo(columns * cellWidth + 1, gridToPixel(cellWidth, font.ascenderHeight + font.defaultHeight - font.xHeight));
+
+    context.moveTo(0, gridToPixel(cellWidth, font.ascenderHeight));
+    context.lineTo(columns * cellWidth + 1, gridToPixel(cellWidth, font.ascenderHeight));
     context.stroke();
 }
 

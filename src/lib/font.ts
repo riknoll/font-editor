@@ -1,4 +1,4 @@
-import { NumberFormat, hexToUint8Array, setNumber, uint8ArrayToHex } from "./buffer";
+import { NumberFormat, setNumber, uint8ArrayToHex } from "./buffer";
 import { createGlyph, deserializeGlyph, getPixel, Glyph, serializeGlyph, setPixel } from "./glyph";
 
 export interface FontMeta {
@@ -63,6 +63,32 @@ export function deserializeFont(data: string) {
     const parsed = JSON.parse(data);
 
     return new Font(parsed.meta, parsed.glyphs.map(deserializeGlyph));
+}
+
+export function changeFontMeta(font: Font, newMeta: FontMeta) {
+    const newGlyphs: Glyph[] = [];
+
+    const oldBase = font.meta.ascenderHeight + font.meta.defaultHeight;
+    const newBase = newMeta.ascenderHeight + newMeta.defaultHeight;
+
+    const yShift = newBase - oldBase;
+    const xShift = newMeta.kernWidth - font.meta.kernWidth;
+
+    for (const glyph of font.glyphs) {
+        const newGlyph = createGlyph(newMeta, glyph.character);
+
+        for (let x = 0; x < glyph.width; x++) {
+            for (let y = 0; y < glyph.height; y++) {
+                if (!getPixel(glyph, x, y)) continue;
+
+                setPixel(newGlyph, x + xShift, y + yShift, true);
+            }
+        }
+
+        newGlyphs.push(newGlyph);
+    }
+
+    return new Font(newMeta, newGlyphs);
 }
 
 const MAGIC = 0x68f119db;

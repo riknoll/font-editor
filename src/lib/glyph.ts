@@ -64,3 +64,20 @@ export function deserializeGlyph(encoded: string): Glyph {
         pixels: stringToUint8Array(atob(parsed.pixels))
     };
 }
+
+export function shiftGlyph(glyph: Glyph, xShift: number, yShift: number) {
+    const newGlyph = {
+        ...glyph,
+        pixels: new Uint8Array(glyph.pixels.length)
+    };
+
+    for (let x = 0; x < glyph.width; x++) {
+        for (let y = 0; y < glyph.height; y++) {
+            if (getPixel(glyph, x, y)) {
+                setPixel(newGlyph, x + xShift, y + yShift, true);
+            }
+        }
+    }
+
+    return newGlyph;
+}
