@@ -104,21 +104,26 @@ const MAGIC = 0x68f119db;
  * first character in the font range. Bitmaps are encoded in F4
  * 1 bpp format, but don't include the header
  *
- * Header (12 bytes):
- *  [0..3] magic
- *  [4..5] font range start
- *  [6..7] font range ended
- *  [8]    line height
- *  [9]    baseline offset
- *  [10]   letter spacing
- *  [11]   word spacing
- * LookupTableEntry (7 bytes):
- *  [0]    char width
- *  [1]    bitmap width
- *  [2]    bitmap height
- *  [3]    char x offset (signed, relative to left line)
- *  [4]    char y offset (signed, relative to baseline)
- *  [5..6] pixel data start (relative to bitmap section start)
+ * Header (14 bytes):
+ *  [0..3]   magic
+ *  [4..5]   font range start
+ *  [6..7]   font range ended
+ *  [8]      line height
+ *  [9]      baseline offset
+ *  [10]     letter spacing
+ *  [11]     word spacing
+ *  [12..13] byte length of longest bitmap
+ * LookupTableEntry (2 bytes):
+ *  [0..1]   bitmap entry offset or 0xffff if not present
+ * BitmapEntry (5 + N bytes)
+ *  [0]      char width
+ *  [1]      bitmap width
+ *  [2]      bitmap height
+ *  [3]      char x offset (signed, relative to left line)
+ *  [4]      char y offset (signed, relative to baseline)
+ *  [5..N]   pixel data
+ *
+ * Bitmap data length = width * ((height + 7) >> 3)
  */
 export function hexEncodeFont(font: Font) {
     let minChar = font.glyphs[0].character.charCodeAt(0);
@@ -131,7 +136,7 @@ export function hexEncodeFont(font: Font) {
 
     const numGlyphs = maxChar - minChar + 1;
 
-    const headerBuf = new Uint8Array(12 + 7 * numGlyphs);
+    const headerBuf = new Uint8Array(14 + 2 * numGlyphs);
 
     setNumber(headerBuf, NumberFormat.UInt32LE, 0, MAGIC);
     setNumber(headerBuf, NumberFormat.UInt16LE, 4, minChar);
@@ -142,29 +147,44 @@ export function hexEncodeFont(font: Font) {
     setNumber(headerBuf, NumberFormat.UInt8LE, 11, font.meta.wordSpacing);
 
     let pixelBytes = 0;
+    let maxLength = 0;
     const bitmaps = [];
     for (let i = 0; i < numGlyphs; i++) {
+        const offset = 14 + 2 * i;
+
         const glyph = font.glyphs.find(g => g.character.charCodeAt(0) === minChar + i);
-        if (!glyph) continue;
+        if (!glyph) {
+            setNumber(headerBuf, NumberFormat.UInt16LE, offset, 0xffff);
+            continue;
+        }
 
         const trimmed = trimGlyph(glyph, font);
 
-        if (!trimmed) continue;
+        if (!trimmed) {
+            setNumber(headerBuf, NumberFormat.UInt16LE, offset, 0xffff);
+            continue;
+        }
+
+        setNumber(headerBuf, NumberFormat.UInt16LE, offset, pixelBytes);
 
         const [trimmedGlyph, pixels] = trimmed;
+        maxLength = Math.max(pixels.length, maxLength);
 
-        bitmaps.push(pixels);
+        const bitmapEntry = new Uint8Array(5 + pixels.length)
 
-        const offset = 12 + 7 * i;
-        setNumber(headerBuf, NumberFormat.UInt8LE, offset, trimmedGlyph.width + trimmedGlyph.xOffset);
-        setNumber(headerBuf, NumberFormat.UInt8LE, offset + 1, trimmedGlyph.width);
-        setNumber(headerBuf, NumberFormat.UInt8LE, offset + 2, trimmedGlyph.height);
-        setNumber(headerBuf, NumberFormat.Int8LE, offset + 3, trimmedGlyph.xOffset);
-        setNumber(headerBuf, NumberFormat.Int8LE, offset + 4, trimmedGlyph.yOffset);
-        setNumber(headerBuf, NumberFormat.UInt16LE, offset + 5, pixelBytes);
+        bitmaps.push(bitmapEntry);
 
-        pixelBytes += pixels.length;
+        setNumber(bitmapEntry, NumberFormat.UInt8LE, 0, trimmedGlyph.width + trimmedGlyph.xOffset);
+        setNumber(bitmapEntry, NumberFormat.UInt8LE, 1, trimmedGlyph.width);
+        setNumber(bitmapEntry, NumberFormat.UInt8LE, 2, trimmedGlyph.height);
+        setNumber(bitmapEntry, NumberFormat.Int8LE, 3, trimmedGlyph.xOffset);
+        setNumber(bitmapEntry, NumberFormat.Int8LE, 4, trimmedGlyph.yOffset);
+        bitmapEntry.set(pixels, 5);
+
+        pixelBytes += bitmapEntry.length;
     }
+
+    setNumber(headerBuf, NumberFormat.UInt16LE, 12, maxLength);
 
     const outBuffer = new Uint8Array(headerBuf.length + pixelBytes);
     outBuffer.set(headerBuf, 0);

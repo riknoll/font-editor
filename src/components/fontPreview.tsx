@@ -107,9 +107,7 @@ export const FontPreview = (props: FontPreviewProps) => {
 
     }, [text, font])
 
-    return <div>
-        <canvas ref={ref} />
-    </div>
+    return <canvas ref={ref} style={{imageRendering: "pixelated"}} />
 };
 
 function drawGlyph(glyph: Glyph, x: number, y: number, context: CanvasRenderingContext2D) {

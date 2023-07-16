@@ -51,7 +51,7 @@ export const GlyphEditor = (props: GlyphEditorProps) => {
     }, [onFontUpdate, currentGlyph]);
 
     return (
-        <div>
+        <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
             <div className={classes.container}>
                 <div>
                     <GlyphActions
@@ -74,7 +74,7 @@ export const GlyphEditor = (props: GlyphEditorProps) => {
                         onGlyphSelected={setCurrentGlyph} />
                 </div>
             </div>
-            <div className={classes.container}>
+            <div className={classes.container} style={{flexGrow: 1}}>
                 <Textarea
                     defaultValue={testText}
                     onChange={(ev, data) => setTestText(data.value)}
