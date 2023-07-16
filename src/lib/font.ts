@@ -178,7 +178,7 @@ export function hexEncodeFont(font: Font) {
     return uint8ArrayToHex(outBuffer);
 }
 
-function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8Array] | undefined {
+export function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8Array] | undefined {
     let minX = glyph.width;
     let maxX = 0;
     let minY = glyph.height;
@@ -206,10 +206,18 @@ function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8Array] | undefined {
         character: glyph.character,
         width,
         height,
-        pixels: null as any,
+        pixels: new Uint8Array(width * byteHeight(height)),
         xOffset: minX - font.meta.kernWidth,
         yOffset: minY - (font.meta.ascenderHeight + font.meta.defaultHeight)
     };
+
+    for (let x = 0; x < glyph.width; x++) {
+        for (let y = 0; y < glyph.height; y++) {
+            if (getPixel(glyph, x, y)) {
+                setPixel(newGlyph, x - minX, y - minY, true)
+            }
+        }
+    }
 
     const encoded = f4EncodeImg(newGlyph.width, newGlyph.height, (x, y) => getPixel(glyph, minX + x, minY + y) ? 1 : 0);
 
