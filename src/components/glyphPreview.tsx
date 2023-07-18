@@ -15,6 +15,7 @@ const useClasses = makeStyles({
         cursor: "pointer",
         display: "flex",
         flexDirection: "column",
+        userSelect: "none",
 
         ":focus-visible": {
             outlineColor: "-webkit-focus-ring-color"

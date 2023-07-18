@@ -27,6 +27,8 @@ export const SettingsDialog = (props: SettingsDialogProps) => {
     const descenderHeightRef = React.useRef<HTMLInputElement>(null);
     const ascenderHeightRef = React.useRef<HTMLInputElement>(null);
     const xHeightRef = React.useRef<HTMLInputElement>(null);
+    const letterSpacingRef = React.useRef<HTMLInputElement>(null);
+    const wordSpacingRef = React.useRef<HTMLInputElement>(null);
 
     const inputs = [
         {
@@ -64,6 +66,18 @@ export const SettingsDialog = (props: SettingsDialogProps) => {
             ref: kernWidthRef,
             value: font.meta?.kernWidth,
             id: useId()
+        },
+        {
+            label: "Letter Spacing",
+            ref: letterSpacingRef,
+            value: font.meta?.letterSpacing,
+            id: useId()
+        },
+        {
+            label: "Word Spacing",
+            ref: wordSpacingRef,
+            value: font.meta?.wordSpacing,
+            id: useId()
         }
     ];
 
@@ -83,7 +97,9 @@ export const SettingsDialog = (props: SettingsDialogProps) => {
             xHeight: validate(values[2], font.meta.xHeight),
             descenderHeight: validate(values[3], font.meta.descenderHeight),
             ascenderHeight: validate(values[4], font.meta.ascenderHeight),
-            kernWidth: validate(values[5], font.meta.kernWidth)
+            kernWidth: validate(values[5], font.meta.kernWidth),
+            letterSpacing: validate(values[6], font.meta.letterSpacing),
+            wordSpacing: validate(values[7], font.meta.wordSpacing)
         };
 
         onFontUpdate(changeFontMeta(font, newMeta));

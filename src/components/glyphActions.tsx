@@ -1,11 +1,12 @@
 import * as React from "react";
 import { Glyph, clearGlyph, deserializeGlyph, serializeGlyph, shiftGlyph } from "../lib/glyph";
 import { Button } from "@fluentui/react-components";
-import { ArrowDown16Regular, ArrowDownload16Regular, ArrowLeft16Regular, ArrowRight16Regular, ArrowUp16Regular, ArrowUpload16Regular, ClipboardPaste16Regular, Copy16Regular, Delete16Regular, Settings16Regular } from "@fluentui/react-icons";
+import { ArrowDown16Regular, ArrowDownload16Regular, ArrowLeft16Regular, ArrowRight16Regular, ArrowUp16Regular, ArrowUpload16Regular, ClipboardPaste16Regular, Copy16Regular, Delete16Regular, Settings16Regular, Share16Regular } from "@fluentui/react-icons";
 import { Font, serializeFont } from "../lib/font";
 import { SettingsDialog } from "./settingsDialog";
 import { browserDownloadText } from "../lib/download";
 import { ImportDialog } from "./importDialog";
+import { ShareDialog } from "./shareDialog";
 
 export interface GlyphActionsProps {
     editing: Glyph;
@@ -21,6 +22,7 @@ export const GlyphActions = (props: GlyphActionsProps) => {
     const [copied, setCopied] = React.useState<string>();
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const [importOpen, setImportOpen] = React.useState(false);
+    const [shareOpen, setShareOpen] = React.useState(false);
 
     const onClearGlyph = React.useCallback(() => {
         onGlyphUpdate({
@@ -70,6 +72,10 @@ export const GlyphActions = (props: GlyphActionsProps) => {
     const onDownloadClick = React.useCallback(() => {
         browserDownloadText(serializeFont(font), "font.json");
     }, [font]);
+
+    const onShareClick = React.useCallback(() => {
+        setShareOpen(true);
+    }, []);
 
     return (
         <>
@@ -124,18 +130,35 @@ export const GlyphActions = (props: GlyphActionsProps) => {
                     icon={<ArrowUpload16Regular />}
                     title="Import font from file"
                     onClick={onImportClick} />
+                <Button
+                    appearance="subtle"
+                    icon={<Share16Regular />}
+                    title="Create share link"
+                    onClick={onShareClick} />
+
             </div>
-            <SettingsDialog
-                font={font}
-                onFontUpdate={onFontUpdate}
-                onOpenChange={(_, data) => setSettingsOpen(data.open)}
-                open={settingsOpen}
-            />
-            <ImportDialog
-                onFontUpdate={onFontUpdate}
-                onOpenChange={(_, data) => setImportOpen(data.open)}
-                open={importOpen}
-            />
+            {settingsOpen &&
+                <SettingsDialog
+                    font={font}
+                    onFontUpdate={onFontUpdate}
+                    onOpenChange={(_, data) => setSettingsOpen(data.open)}
+                    open={settingsOpen}
+                />
+            }
+            {importOpen &&
+                <ImportDialog
+                    onFontUpdate={onFontUpdate}
+                    onOpenChange={(_, data) => setImportOpen(data.open)}
+                    open={importOpen}
+                />
+            }
+            {shareOpen &&
+                <ShareDialog
+                    font={font}
+                    onOpenChange={(_, data) => setShareOpen(data.open)}
+                    open={shareOpen}
+                />
+            }
         </>
     );
 }

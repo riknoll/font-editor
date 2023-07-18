@@ -2,6 +2,7 @@
   "name": "font",
   "version": "0.1.0",
   "private": true,
+  "homepage": "/font-editor",
   "dependencies": {
     "@fluentui/react-components": "^9.26.0",
     "@fluentui/react-icons": "^2.0.207",
