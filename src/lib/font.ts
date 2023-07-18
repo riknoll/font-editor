@@ -100,21 +100,20 @@ const MAGIC = 0x68f119db;
  *
  * Every character in the font gets an entry in the lookup table
  * that contains glyph metadata and points to the bitmap location.
- * The address of the entry for each character is relative to the
- * first character in the font range. Bitmaps are encoded in F4
+ * Lookup table is sorted by char code. Bitmaps are encoded in F4
  * 1 bpp format, but don't include the header
  *
- * Header (14 bytes):
+ * Header (12 bytes):
  *  [0..3]   magic
- *  [4..5]   font range start
- *  [6..7]   font range ended
- *  [8]      line height
- *  [9]      baseline offset
- *  [10]     letter spacing
- *  [11]     word spacing
- *  [12..13] byte length of longest bitmap
- * LookupTableEntry (2 bytes):
- *  [0..1]   bitmap entry offset or 0xffff if not present
+ *  [4..5]   number of characters
+ *  [6]      line height
+ *  [7]      baseline offset
+ *  [8]      letter spacing
+ *  [9]      word spacing
+ *  [10..11] byte length of longest bitmap
+ * LookupTableEntry (4 bytes):
+ *  [0..1]   character code
+ *  [2..3]   bitmap entry offset
  * BitmapEntry (5 + N bytes)
  *  [0]      char width
  *  [1]      bitmap width
@@ -126,48 +125,31 @@ const MAGIC = 0x68f119db;
  * Bitmap data length = width * ((height + 7) >> 3)
  */
 export function hexEncodeFont(font: Font) {
-    let minChar = font.glyphs[0].character.charCodeAt(0);
-    let maxChar = font.glyphs[0].character.charCodeAt(0);
+    const glyphs = (font.glyphs
+        .map(g => trimGlyph(g, font))
+        .filter(e => !!e) as ([Glyph, Uint8Array])[])
+        .sort((a, b) => a[0].character.charCodeAt(0) - b[0].character.charCodeAt(0));
 
-    for (const glyph of font.glyphs) {
-        minChar = Math.min(minChar, glyph.character.charCodeAt(0));
-        maxChar = Math.max(maxChar, glyph.character.charCodeAt(0));
-    }
-
-    const numGlyphs = maxChar - minChar + 1;
-
-    const headerBuf = new Uint8Array(14 + 2 * numGlyphs);
+    const numGlyphs = glyphs.length;
+    const headerBuf = new Uint8Array(12 + 4 * numGlyphs);
 
     setNumber(headerBuf, NumberFormat.UInt32LE, 0, MAGIC);
-    setNumber(headerBuf, NumberFormat.UInt16LE, 4, minChar);
-    setNumber(headerBuf, NumberFormat.UInt16LE, 6, maxChar);
-    setNumber(headerBuf, NumberFormat.UInt8LE, 8, font.meta.ascenderHeight + font.meta.defaultHeight + font.meta.descenderHeight);
-    setNumber(headerBuf, NumberFormat.UInt8LE, 9, font.meta.ascenderHeight + font.meta.defaultHeight);
-    setNumber(headerBuf, NumberFormat.UInt8LE, 10, font.meta.letterSpacing);
-    setNumber(headerBuf, NumberFormat.UInt8LE, 11, font.meta.wordSpacing);
+    setNumber(headerBuf, NumberFormat.UInt16LE, 4, numGlyphs);
+    setNumber(headerBuf, NumberFormat.UInt8LE, 6, font.meta.ascenderHeight + font.meta.defaultHeight + font.meta.descenderHeight);
+    setNumber(headerBuf, NumberFormat.UInt8LE, 7, font.meta.ascenderHeight + font.meta.defaultHeight);
+    setNumber(headerBuf, NumberFormat.UInt8LE, 8, font.meta.letterSpacing);
+    setNumber(headerBuf, NumberFormat.UInt8LE, 9, font.meta.wordSpacing);
 
     let pixelBytes = 0;
     let maxLength = 0;
     const bitmaps = [];
     for (let i = 0; i < numGlyphs; i++) {
-        const offset = 14 + 2 * i;
+        const offset = 12 + 4 * i;
+        const [trimmedGlyph, pixels] = glyphs[i];
 
-        const glyph = font.glyphs.find(g => g.character.charCodeAt(0) === minChar + i);
-        if (!glyph) {
-            setNumber(headerBuf, NumberFormat.UInt16LE, offset, 0xffff);
-            continue;
-        }
+        setNumber(headerBuf, NumberFormat.UInt16LE, offset, trimmedGlyph.character.charCodeAt(0));
+        setNumber(headerBuf, NumberFormat.UInt16LE, offset + 2, pixelBytes);
 
-        const trimmed = trimGlyph(glyph, font);
-
-        if (!trimmed) {
-            setNumber(headerBuf, NumberFormat.UInt16LE, offset, 0xffff);
-            continue;
-        }
-
-        setNumber(headerBuf, NumberFormat.UInt16LE, offset, pixelBytes);
-
-        const [trimmedGlyph, pixels] = trimmed;
         maxLength = Math.max(pixels.length, maxLength);
 
         const bitmapEntry = new Uint8Array(5 + pixels.length)
@@ -184,7 +166,7 @@ export function hexEncodeFont(font: Font) {
         pixelBytes += bitmapEntry.length;
     }
 
-    setNumber(headerBuf, NumberFormat.UInt16LE, 12, maxLength);
+    setNumber(headerBuf, NumberFormat.UInt16LE, 10, maxLength);
 
     const outBuffer = new Uint8Array(headerBuf.length + pixelBytes);
     outBuffer.set(headerBuf, 0);

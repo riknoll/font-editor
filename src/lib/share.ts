@@ -20,7 +20,7 @@ export async function createShareLink(fontName: string, font: Font) {
 
     if (result.status === 200) {
         const resJSON = await result.json();
-        return apiRoot + "/" + resJSON.shortid;
+        return "https://arcade.makecode.com/" + resJSON.shortid;
     }
 
     return "ERROR"
