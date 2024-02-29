@@ -3,7 +3,7 @@ import { Glyph, createGlyph, getPixel } from "./glyph";
 
 const CHARACTERS_PER_LINE = 10;
 
-export function renderPreview(font: Font, text: string, canvas: HTMLCanvasElement, width?: number, height?: number) {
+export function renderPreview(font: Font, text: string, canvas: HTMLCanvasElement, width?: number, height?: number, backgroundFill?: string) {
     const trimmedGlyphs: {[index: string]: Glyph} = {};
     const placeHolderGlyph = createGlyph(font.meta, "");
 
@@ -73,7 +73,15 @@ export function renderPreview(font: Font, text: string, canvas: HTMLCanvasElemen
     canvas.height = height || (lines.length * lineHeight);
 
     const context = canvas.getContext("2d")!;
-    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (backgroundFill) {
+        context.fillStyle = backgroundFill;
+        context.fillRect(0, 0, canvas.width, canvas.height,)
+    }
+    else {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
     context.fillStyle = "black";
 
     let x = 0;
@@ -106,6 +114,6 @@ function drawGlyph(glyph: Glyph, x: number, y: number, context: CanvasRenderingC
 
 export function createPreviewThumbnail(font: Font, text: string) {
     const canvas = document.createElement("canvas");
-    renderPreview(font, text, canvas, 160, 120);
+    renderPreview(font, text, canvas, 160, 120, "white");
     return canvas.toDataURL("png");
 }
