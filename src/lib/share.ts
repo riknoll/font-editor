@@ -1,12 +1,16 @@
 import { Font, hexEncodeFont } from "./font";
+import { createPreviewThumbnail } from "./preview";
 
 const apiRoot = "https://www.makecode.com";
 const description = "A custom font for MakeCode Arcade";
 
 export async function createShareLink(fontName: string, font: Font) {
+    const thumbnail = createPreviewThumbnail(font, `Aa Bb Cc Dd Ee Ff Gg Hh Ii Jj Kk Ll Mm Nn Oo Pp Qq Rr Ss Tt Uu Vv Ww Xx Yy Zz 0123456789 .!?"'(){}[]`)
+
     const payload = createShareRequest(
         `${fontName} (font)`,
-        createProjectFiles(fontName, font)
+        createProjectFiles(fontName, font),
+        thumbnail
     );
     const url = apiRoot + "/api/scripts";
 
@@ -27,7 +31,15 @@ export async function createShareLink(fontName: string, font: Font) {
 }
 
 
-function createShareRequest(projectName: string, files: {[index: string]: string}) {
+function createShareRequest(projectName: string, files: {[index: string]: string}, screenshotUri: string) {
+    let thumbnailBuffer: string | undefined;
+    let thumbnailMimeType: string | undefined;
+    const m = /^data:(image\/(png|gif));base64,([a-zA-Z0-9+/]+=*)$/.exec(screenshotUri);
+    if (m) {
+        thumbnailBuffer = m[3];
+        thumbnailMimeType = m[1];
+    }
+
     const header = {
         "name": projectName,
         "meta": {
@@ -54,7 +66,9 @@ function createShareRequest(projectName: string, files: {[index: string]: string
         header: JSON.stringify(header),
         text: JSON.stringify(files),
         meta: {
-        }
+        },
+        thumbnailBuffer,
+        thumbnailMimeType
     }
 }
 
