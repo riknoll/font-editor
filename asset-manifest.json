@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/font-editor/static/css/main.7523300d.css",
-    "main.js": "/font-editor/static/js/main.e45d26d8.js",
+    "main.js": "/font-editor/static/js/main.805f9f03.js",
     "static/js/787.98f3ef87.chunk.js": "/font-editor/static/js/787.98f3ef87.chunk.js",
     "index.html": "/font-editor/index.html",
     "main.7523300d.css.map": "/font-editor/static/css/main.7523300d.css.map",
-    "main.e45d26d8.js.map": "/font-editor/static/js/main.e45d26d8.js.map",
+    "main.805f9f03.js.map": "/font-editor/static/js/main.805f9f03.js.map",
     "787.98f3ef87.chunk.js.map": "/font-editor/static/js/787.98f3ef87.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.7523300d.css",
-    "static/js/main.e45d26d8.js"
+    "static/js/main.805f9f03.js"
   ]
 }
