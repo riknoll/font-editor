@@ -95,7 +95,7 @@ function createProjectFiles(fontName: string, font: Font) {
 namespace customFont {
     //% whenUsed
     //% block="${fontName}"
-    //% blockIdentity=fancy_text__fontPicker
+    //% blockIdentity="fancyText.__fontPicker"
     //% fixedInstance
     export const ${escapedName}: fancyText.BaseFont = new fancyText.Font(hex\`${encoded}\`);
 }
