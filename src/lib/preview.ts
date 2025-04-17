@@ -41,10 +41,14 @@ export function renderPreview(font: Font, text: string, canvas: HTMLCanvasElemen
 
     for (let i = 0; i < text.length; i++) {
         const char = text.charAt(i);
+        const nextChar = text.charAt(i + 1);
 
         if (char === " ") {
             lineWidth += font.meta.wordSpacing;
             lastSpace = i;
+        }
+        else if (!trimmedGlyphs[char]) {
+            continue;
         }
         else {
             const glyph = trimmedGlyphs[char]!;
@@ -62,6 +66,12 @@ export function renderPreview(font: Font, text: string, canvas: HTMLCanvasElemen
                 lineStart = i;
             }
             lineWidth = 0;
+        }
+        else if (nextChar && char !== " ") {
+            const kernEntry = trimmedGlyphs[char].kernEntries.find(c => c.character === nextChar);
+            if (kernEntry) {
+                lineWidth += kernEntry.offset;
+            }
         }
     }
 
@@ -87,24 +97,51 @@ export function renderPreview(font: Font, text: string, canvas: HTMLCanvasElemen
     let x = 0;
     let y = 0;
     for (const line of lines) {
-        for (const char of line) {
+        for (let i = 0; i < line.length; i++) {
+            const char = line.charAt(i);
+            const nextChar = line.charAt(i + 1);
+
             if (char === " ") {
                 x += font.meta.wordSpacing;
                 continue;
             }
             const glyph = trimmedGlyphs[char];
-            drawGlyph(glyph, x + glyph.xOffset, y + glyph.yOffset + font.meta.ascenderHeight + font.meta.defaultHeight, context);
-            x += glyph.width + glyph.xOffset + font.meta.letterSpacing
+
+            if (!glyph) continue;
+
+            drawGlyph(
+                glyph,
+                x + glyph.xOffset,
+                y + glyph.yOffset + font.meta.ascenderHeight + font.meta.defaultHeight,
+                font.meta.twoTone,
+                context
+            );
+            x += glyph.width + glyph.xOffset + font.meta.letterSpacing;
+
+            if (nextChar) {
+                const kernEntry = glyph.kernEntries.find(c => c.character === nextChar);
+                if (kernEntry) {
+                    x += kernEntry.offset;
+                }
+            }
         }
         x = 0;
         y += lineHeight;
     }
 }
 
-function drawGlyph(glyph: Glyph, x: number, y: number, context: CanvasRenderingContext2D) {
+const LAYER_1_COLOR = "#000000";
+const LAYER_2_COLOR = "#FF0000"
+
+function drawGlyph(glyph: Glyph, x: number, y: number, twoTone: boolean, context: CanvasRenderingContext2D) {
     for (let ix = 0; ix < glyph.width; ix++) {
         for (let iy = 0; iy < glyph.height; iy++) {
-            if (getPixel(glyph, ix, iy)) {
+            if (twoTone && getPixel(glyph, ix, iy, 1)) {
+                context.fillStyle = LAYER_2_COLOR;
+                context.fillRect(x + ix, y + iy, 1, 1);
+            }
+            else if (getPixel(glyph, ix, iy, 0)) {
+                context.fillStyle = LAYER_1_COLOR;
                 context.fillRect(x + ix, y + iy, 1, 1);
             }
         }

@@ -5,6 +5,7 @@ import { getPixel, Glyph, setPixel } from "../lib/glyph";
 export interface GlyphGridProps {
     font: FontMeta;
     editing: Glyph;
+    layer: number;
     onGlyphChange: (newValue: Glyph) => void;
     onGlyphUpdate: (newValue: Glyph) => void;
 }
@@ -17,7 +18,7 @@ interface GestureState {
 }
 
 export const GlyphGrid = (props: GlyphGridProps) => {
-    const { font, editing, onGlyphChange, onGlyphUpdate } = props;
+    const { font, editing, onGlyphChange, onGlyphUpdate, layer } = props;
 
     const ref = React.useRef(null);
     const gestureState = React.useRef<GestureState>({
@@ -40,8 +41,11 @@ export const GlyphGrid = (props: GlyphGridProps) => {
         };
 
         const setPixelCore = (x: number, y: number, on: boolean) => {
-            if (getPixel(editing, x, y) === on) return false;
-            setPixel(editing, x, y, on);
+            if (getPixel(editing, x, y, layer) === on) return false;
+
+            for (let i = 0; i < editing.layers.length; i++) {
+                setPixel(editing, x, y, i, i === layer ? on : false);
+            }
             return true;
         }
 
@@ -108,7 +112,7 @@ export const GlyphGrid = (props: GlyphGridProps) => {
 
             gestureState.current.drawing = true;
             gestureState.current.didChange = false;
-            gestureState.current.erasing = getPixel(editing, coord.x, coord.y);
+            gestureState.current.erasing = getPixel(editing, coord.x, coord.y, layer);
             doPaint(coord.x, coord.y, !gestureState.current.erasing);
             gestureState.current.lastPosition = coord;
         };
@@ -158,7 +162,7 @@ export const GlyphGrid = (props: GlyphGridProps) => {
             document.removeEventListener("pointerleave", onPointerUp);
             document.removeEventListener("pointermove", onPointerMove);
         };
-    }, [font, editing, onGlyphUpdate, onGlyphChange]);
+    }, [font, editing, onGlyphUpdate, onGlyphChange, layer]);
 
     let width = 500;
     width = getCellWidth(width, font) * gridColumns(font) + 1;
@@ -200,10 +204,19 @@ function drawGlyph(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D,
     const rows = gridRows(font);
     const cellWidth = getCellWidth(canvas.width, font);
 
-    context.fillStyle = "black";
     for (let x = 0; x < columns; x++) {
         for (let y = 0; y < rows; y++) {
-            if (getPixel(glyph, x, y)) {
+            if (font.twoTone && getPixel(glyph, x, y, 1)) {
+                context.fillStyle = "red";
+                context.fillRect(
+                    gridToPixel(cellWidth, x),
+                    gridToPixel(cellWidth, y),
+                    cellWidth,
+                    cellWidth
+                );
+            }
+            else if (getPixel(glyph, x, y, 0)) {
+                context.fillStyle = "black";
                 context.fillRect(
                     gridToPixel(cellWidth, x),
                     gridToPixel(cellWidth, y),

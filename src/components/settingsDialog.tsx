@@ -1,6 +1,7 @@
-import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogProps, DialogSurface, DialogTitle, DialogTrigger, Input, Label, Title3, makeStyles, shorthands, useId } from "@fluentui/react-components";
+import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogProps, DialogSurface, DialogTitle, DialogTrigger, Input, Label, Title3, makeStyles, shorthands, useId } from "@fluentui/react-components";
 import { Font, FontMeta, changeFontMeta } from "../lib/font";
 import React from "react";
+import { clearGlyph } from "../lib/glyph";
 
 export interface SettingsDialogProps extends Partial<DialogProps> {
     font: Font;
@@ -21,6 +22,8 @@ export const SettingsDialog = (props: SettingsDialogProps) => {
 
     const classes = useClasses();
 
+    const [twoTone, setTwoTone] = React.useState(font.meta.twoTone);
+
     const kernWidthRef = React.useRef<HTMLInputElement>(null);
     const defaultHeightRef = React.useRef<HTMLInputElement>(null);
     const defaultWidthRef = React.useRef<HTMLInputElement>(null);
@@ -29,6 +32,7 @@ export const SettingsDialog = (props: SettingsDialogProps) => {
     const xHeightRef = React.useRef<HTMLInputElement>(null);
     const letterSpacingRef = React.useRef<HTMLInputElement>(null);
     const wordSpacingRef = React.useRef<HTMLInputElement>(null);
+    const lineSpacingRef = React.useRef<HTMLInputElement>(null);
 
     const inputs = [
         {
@@ -78,10 +82,16 @@ export const SettingsDialog = (props: SettingsDialogProps) => {
             ref: wordSpacingRef,
             value: font.meta?.wordSpacing,
             id: useId()
+        },
+        {
+            label: "Line Spacing",
+            ref: lineSpacingRef,
+            value: font.meta?.lineSpacing,
+            id: useId()
         }
     ];
 
-    const onSave = React.useCallback(() => {
+    const onSave = () => {
         const values = inputs.map(data => parseInt(data.ref.current!.value));
 
         const validate = (value: number, defaultValue: number) => {
@@ -99,12 +109,22 @@ export const SettingsDialog = (props: SettingsDialogProps) => {
             ascenderHeight: validate(values[4], font.meta.ascenderHeight),
             kernWidth: validate(values[5], font.meta.kernWidth),
             letterSpacing: validate(values[6], font.meta.letterSpacing),
-            wordSpacing: validate(values[7], font.meta.wordSpacing)
+            wordSpacing: validate(values[7], font.meta.wordSpacing),
+            lineSpacing: validate(values[8], font.meta.lineSpacing),
+            twoTone: twoTone
         };
 
         onFontUpdate(changeFontMeta(font, newMeta));
+    };
 
-    }, [font, onFontUpdate, inputs]);
+    const onClearAllClick = () => {
+        const newFont = new Font(font.meta, font.glyphs.map(g => ({
+            ...g,
+            layers: clearGlyph(g)
+        })));
+
+        onFontUpdate(newFont);
+    }
 
     return (
         <Dialog {...props}>
@@ -122,6 +142,21 @@ export const SettingsDialog = (props: SettingsDialogProps) => {
                                 <Input id={data.id} defaultValue={data.value.toString()} ref={data.ref} />
                             </div>
                         )}
+                        <div>
+                            <Checkbox
+                                labelPosition="before"
+                                label="Two-Tone"
+                                checked={twoTone}
+                                onChange={(ev, data) => setTwoTone(data.checked as boolean)}
+                            />
+                        </div>
+                        <div>
+                            <Button
+                                onClick={onClearAllClick}
+                            >
+                                Clear all Glyphs
+                            </Button>
+                        </div>
                     </DialogContent>
                     <DialogActions>
                         <DialogTrigger action="close">

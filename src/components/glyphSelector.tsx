@@ -24,12 +24,13 @@ export const GlyphSelector = (props: GlyphSelectorProps) => {
     const classes = useClasses();
 
     return <div className={classes.grid}>
-        {font.glyphs.map(g => 
+        {font.glyphs.map(g =>
             <GlyphPreview
                 key={g.character}
                 glyph={g}
                 onClick={onGlyphSelected}
                 selected={g.character === selected.character}
+                twoTone={font.meta.twoTone}
             />
         )}
     </div>

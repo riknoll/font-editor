@@ -12,7 +12,7 @@ if (localStorage[LOCAL_FONT_KEY]) {
     font = deserializeFont(localStorage[LOCAL_FONT_KEY]);
 }
 
-if (!font) {
+if (!font?.glyphs.length) {
     font = new Font({
         defaultWidth: 14,
         defaultHeight: 12,
@@ -21,7 +21,9 @@ if (!font) {
         kernWidth: 2,
         xHeight: 6,
         letterSpacing: 1,
-        wordSpacing: 5
+        wordSpacing: 5,
+        lineSpacing: 1,
+        twoTone: true
     });
 }
 

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Glyph, clearGlyph, deserializeGlyph, serializeGlyph, shiftGlyph } from "../lib/glyph";
 import { Button } from "@fluentui/react-components";
-import { ArrowDown16Regular, ArrowDownload16Regular, ArrowLeft16Regular, ArrowRight16Regular, ArrowUp16Regular, ArrowUpload16Regular, ClipboardPaste16Regular, Copy16Regular, Delete16Regular, Settings16Regular, Share16Regular } from "@fluentui/react-icons";
+import { ArrowDown16Regular, ArrowDownload16Regular, ArrowLeft16Regular, ArrowRight16Regular, ArrowUp16Regular, ArrowUpload16Regular, ClipboardPaste16Regular, Copy16Regular, Delete16Regular, Settings16Regular, Share16Regular, Square12Regular, Square16Filled, SquareAdd16Filled } from "@fluentui/react-icons";
 import { Font, serializeFont } from "../lib/font";
 import { SettingsDialog } from "./settingsDialog";
 import { browserDownloadText } from "../lib/download";
@@ -14,10 +14,13 @@ export interface GlyphActionsProps {
 
     font: Font;
     onFontUpdate: (newFont: Font) => void;
+
+    layer: number;
+    onLayerChange: (newLayer: number) => void;
 }
 
 export const GlyphActions = (props: GlyphActionsProps) => {
-    const { editing, onGlyphUpdate, font, onFontUpdate } = props;
+    const { editing, onGlyphUpdate, font, onFontUpdate, onLayerChange, layer } = props;
 
     const [copied, setCopied] = React.useState<string>();
     const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -27,7 +30,7 @@ export const GlyphActions = (props: GlyphActionsProps) => {
     const onClearGlyph = React.useCallback(() => {
         onGlyphUpdate({
             ...editing,
-            pixels: clearGlyph(editing),
+            layers: clearGlyph(editing),
         });
     }, [editing, onGlyphUpdate]);
 
@@ -77,9 +80,20 @@ export const GlyphActions = (props: GlyphActionsProps) => {
         setShareOpen(true);
     }, []);
 
+    const onLayerClick = React.useCallback(() => {
+        onLayerChange(layer === 0 ? 1 : 0);
+    }, [layer, onLayerChange]);
+
     return (
         <>
             <div>
+                {font.meta.twoTone &&
+                    <Button
+                        appearance="subtle"
+                        icon={layer === 0 ? <Square12Regular /> : <Square16Filled />}
+                        title="Set layer"
+                        onClick={onLayerClick} />
+                }
                 <Button
                     appearance="subtle"
                     icon={<ArrowUp16Regular />}

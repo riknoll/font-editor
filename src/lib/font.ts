@@ -27,6 +27,12 @@ export interface FontMeta {
 
     // The width of the space character
     wordSpacing: number;
+
+    // The space to put in between lines of text
+    lineSpacing: number;
+
+    // If true, each glyph can use two colors
+    twoTone: boolean;
 }
 
 const defaultCharacters = `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,?!:;"'*+-=<>()[]{}/\\#$%&@^_\`|~`;
@@ -62,6 +68,10 @@ export function serializeFont(font: Font) {
 export function deserializeFont(data: string) {
     const parsed = JSON.parse(data);
 
+    if (!parsed.meta.lineSpacing) {
+        parsed.meta.lineSpacing = 0;
+    }
+
     return new Font(parsed.meta, parsed.glyphs.map(deserializeGlyph));
 }
 
@@ -79,9 +89,11 @@ export function changeFontMeta(font: Font, newMeta: FontMeta) {
 
         for (let x = 0; x < glyph.width; x++) {
             for (let y = 0; y < glyph.height; y++) {
-                if (!getPixel(glyph, x, y)) continue;
+                for (let i = 0; i < glyph.layers.length; i++) {
+                    if (!getPixel(glyph, x, y, i)) continue;
 
-                setPixel(newGlyph, x + xShift, y + yShift, true);
+                    setPixel(newGlyph, x + xShift, y + yShift, i, true);
+                }
             }
         }
 
@@ -91,7 +103,11 @@ export function changeFontMeta(font: Font, newMeta: FontMeta) {
     return new Font(newMeta, newGlyphs);
 }
 
-const MAGIC = 0x68f119db;
+// legacy
+const V1_FONT_MAGIC = 0x68f119db;
+
+const V2_FONT_MAGIC = 0x68f119dc;
+const V2_DUAL_TONE_FONT_MAGIC = 0x68f119dd;
 
 /**
  * Encoded font format
@@ -103,6 +119,9 @@ const MAGIC = 0x68f119db;
  * Lookup table is sorted by char code. Bitmaps are encoded in F4
  * 1 bpp format, but don't include the header
  *
+ * Bitmap data length = width * ((height + 7) >> 3)
+ *
+ * V1 format:
  * Header (12 bytes):
  *  [0..3]   magic
  *  [4..5]   number of characters
@@ -122,37 +141,70 @@ const MAGIC = 0x68f119db;
  *  [4]      char y offset (signed, relative to baseline)
  *  [5..N]   pixel data
  *
- * Bitmap data length = width * ((height + 7) >> 3)
+ * V2 format:
+ * Header (13 bytes):
+ *  [0..3]   magic
+ *  [4..5]   number of characters
+ *  [6]      line height
+ *  [7]      baseline offset
+ *  [8]      letter spacing
+ *  [9]      word spacing
+ *  [10]     line spacing
+ *  [11..12] byte length of longest bitmap
+ * LookupTableEntry (4 bytes):
+ *  [0..1]   character code
+ *  [2..3]   bitmap entry offset
+ * BitmapEntry (6 + N bytes)
+ *  [0]      char width
+ *  [1]      bitmap width
+ *  [2]      bitmap height
+ *  [3]      char x offset (signed, relative to left line)
+ *  [4]      char y offset (signed, relative to baseline)
+ *  [5]      length of kern table
+ *  [6..N]   kern table entries
+ *  [N..N']  pixel data (layer 0)
+ *  [M..M']  pixel data (layer 1) (if two-tone font)
+ * KernTableEntry (3 bytes)
+ *  [0..1]   character code
+ *  [2]      offset (signed)
  */
+
 export function hexEncodeFont(font: Font) {
     const glyphs = (font.glyphs
         .map(g => trimGlyph(g, font))
-        .filter(e => !!e) as ([Glyph, Uint8Array])[])
+        .filter(e => !!e) as ([Glyph, Uint8Array[]])[])
         .sort((a, b) => a[0].character.charCodeAt(0) - b[0].character.charCodeAt(0));
 
     const numGlyphs = glyphs.length;
-    const headerBuf = new Uint8Array(12 + 4 * numGlyphs);
+    const headerBuf = new Uint8Array(13 + 4 * numGlyphs);
 
-    setNumber(headerBuf, NumberFormat.UInt32LE, 0, MAGIC);
+    setNumber(headerBuf, NumberFormat.UInt32LE, 0, font.meta.twoTone ? V2_DUAL_TONE_FONT_MAGIC : V2_FONT_MAGIC);
     setNumber(headerBuf, NumberFormat.UInt16LE, 4, numGlyphs);
     setNumber(headerBuf, NumberFormat.UInt8LE, 6, font.meta.ascenderHeight + font.meta.defaultHeight + font.meta.descenderHeight);
     setNumber(headerBuf, NumberFormat.UInt8LE, 7, font.meta.ascenderHeight + font.meta.defaultHeight);
     setNumber(headerBuf, NumberFormat.UInt8LE, 8, font.meta.letterSpacing);
     setNumber(headerBuf, NumberFormat.UInt8LE, 9, font.meta.wordSpacing);
+    setNumber(headerBuf, NumberFormat.UInt8LE, 10, font.meta.lineSpacing);
 
     let pixelBytes = 0;
     let maxLength = 0;
     const bitmaps = [];
     for (let i = 0; i < numGlyphs; i++) {
-        const offset = 12 + 4 * i;
-        const [trimmedGlyph, pixels] = glyphs[i];
+        const offset = 13 + 4 * i;
+        const [trimmedGlyph, layers] = glyphs[i];
 
         setNumber(headerBuf, NumberFormat.UInt16LE, offset, trimmedGlyph.character.charCodeAt(0));
         setNumber(headerBuf, NumberFormat.UInt16LE, offset + 2, pixelBytes);
 
-        maxLength = Math.max(pixels.length, maxLength);
+        const bitmapLength = trimmedGlyph.width * ((trimmedGlyph.height + 7) >> 3)
+        maxLength = Math.max(bitmapLength, maxLength);
 
-        const bitmapEntry = new Uint8Array(5 + pixels.length)
+        let bitmapEntryLength = 6 + bitmapLength + trimmedGlyph.kernEntries.length * 3;
+
+        if (font.meta.twoTone) {
+            bitmapEntryLength += bitmapLength;
+        }
+        const bitmapEntry = new Uint8Array(bitmapEntryLength)
 
         bitmaps.push(bitmapEntry);
 
@@ -161,12 +213,27 @@ export function hexEncodeFont(font: Font) {
         setNumber(bitmapEntry, NumberFormat.UInt8LE, 2, trimmedGlyph.height);
         setNumber(bitmapEntry, NumberFormat.Int8LE, 3, trimmedGlyph.xOffset);
         setNumber(bitmapEntry, NumberFormat.Int8LE, 4, trimmedGlyph.yOffset);
-        bitmapEntry.set(pixels, 5);
+        setNumber(bitmapEntry, NumberFormat.UInt8LE, 5, trimmedGlyph.kernEntries.length);
+
+        for (let kernIndex = 0; kernIndex < trimmedGlyph.kernEntries.length; kernIndex++) {
+            const entry = trimmedGlyph.kernEntries[kernIndex];
+            const index = 6 + kernIndex * 3;
+            setNumber(bitmapEntry, NumberFormat.UInt16LE, index, entry.character.charCodeAt(0));
+            setNumber(bitmapEntry, NumberFormat.Int8LE, index + 2, entry.offset);
+        }
+
+        const bitmapStart = 6 + trimmedGlyph.kernEntries.length * 3;
+
+        bitmapEntry.set(layers[0], bitmapStart);
+
+        if (font.meta.twoTone) {
+            bitmapEntry.set(layers[1], bitmapStart + bitmapLength);
+        }
 
         pixelBytes += bitmapEntry.length;
     }
 
-    setNumber(headerBuf, NumberFormat.UInt16LE, 10, maxLength);
+    setNumber(headerBuf, NumberFormat.UInt16LE, 11, maxLength);
 
     const outBuffer = new Uint8Array(headerBuf.length + pixelBytes);
     outBuffer.set(headerBuf, 0);
@@ -180,7 +247,7 @@ export function hexEncodeFont(font: Font) {
     return uint8ArrayToHex(outBuffer);
 }
 
-export function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8Array] | undefined {
+export function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8Array[]] | undefined {
     let minX = glyph.width;
     let maxX = 0;
     let minY = glyph.height;
@@ -189,12 +256,14 @@ export function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8Array] | undef
     let hasPixel = false;
     for (let x = 0; x < glyph.width; x++) {
         for (let y = 0; y < glyph.height; y++) {
-            if (getPixel(glyph, x, y)) {
-                minX = Math.min(x, minX);
-                minY = Math.min(y, minY);
-                maxX = Math.max(x, maxX);
-                maxY = Math.max(y, maxY);
-                hasPixel = true;
+            for (let i = 0; i < glyph.layers.length; i++) {
+                if (getPixel(glyph, x, y, i)) {
+                    minX = Math.min(x, minX);
+                    minY = Math.min(y, minY);
+                    maxX = Math.max(x, maxX);
+                    maxY = Math.max(y, maxY);
+                    hasPixel = true;
+                }
             }
         }
     }
@@ -208,20 +277,29 @@ export function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8Array] | undef
         character: glyph.character,
         width,
         height,
-        pixels: new Uint8Array(width * byteHeight(height)),
+        layers: glyph.layers.map(l => new Uint8Array(width * byteHeight(height))),
         xOffset: minX - font.meta.kernWidth,
-        yOffset: minY - (font.meta.ascenderHeight + font.meta.defaultHeight)
+        yOffset: minY - (font.meta.ascenderHeight + font.meta.defaultHeight),
+        kernEntries: glyph.kernEntries.slice()
     };
 
     for (let x = 0; x < glyph.width; x++) {
         for (let y = 0; y < glyph.height; y++) {
-            if (getPixel(glyph, x, y)) {
-                setPixel(newGlyph, x - minX, y - minY, true)
+            for (let i = 0; i < glyph.layers.length; i++) {
+                if (getPixel(glyph, x, y, i)) {
+                    setPixel(newGlyph, x - minX, y - minY, i, true)
+                }
             }
         }
     }
 
-    const encoded = f4EncodeImg(newGlyph.width, newGlyph.height, (x, y) => getPixel(glyph, minX + x, minY + y) ? 1 : 0);
+    const encoded = glyph.layers.map((l, i) =>
+        f4EncodeImg(
+            newGlyph.width,
+            newGlyph.height,
+            (x, y) =>
+                getPixel(glyph, minX + x, minY + y, i) ? 1 : 0)
+    );
 
     return [newGlyph, encoded];
 }

@@ -31,7 +31,8 @@ export const GlyphEditor = (props: GlyphEditorProps) => {
     const classes = useClasses();
     const [currentGlyph, setCurrentGlyph] = React.useState(font.glyphs[0]);
     const [currentFont, setCurrentFont] = React.useState(font);
-    const [testText, setTestText] = React.useState(DEFAULT_TEXT)
+    const [testText, setTestText] = React.useState(DEFAULT_TEXT);
+    const [layer, setLayer] = React.useState(0);
 
     const onGlyphChange = React.useCallback((glyph: Glyph) => {
         setCurrentFont(currentFont.updateGlyph(glyph));
@@ -47,7 +48,7 @@ export const GlyphEditor = (props: GlyphEditorProps) => {
     const onFontSettingsChange = React.useCallback((newFont: Font) => {
         setCurrentFont(newFont);
         onFontUpdate(newFont);
-        setCurrentGlyph(newFont.glyphs.find(g => g.character === currentGlyph.character)!)
+        setCurrentGlyph(newFont.glyphs.find(g => g.character === currentGlyph.character)! || newFont.glyphs[0])
     }, [onFontUpdate, currentGlyph]);
 
     return (
@@ -59,12 +60,15 @@ export const GlyphEditor = (props: GlyphEditorProps) => {
                         onGlyphUpdate={onGlyphUpdate}
                         font={currentFont}
                         onFontUpdate={onFontSettingsChange}
+                        layer={layer}
+                        onLayerChange={setLayer}
                     />
                     <GlyphGrid
                         font={currentFont.meta}
                         editing={currentGlyph}
                         onGlyphChange={onGlyphChange}
                         onGlyphUpdate={onGlyphUpdate}
+                        layer={currentFont.meta.twoTone ? layer : 0}
                     />
                 </div>
                 <div className={classes.selector}>

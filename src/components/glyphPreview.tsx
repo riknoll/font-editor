@@ -4,6 +4,7 @@ import { getPixel, Glyph } from "../lib/glyph";
 
 export interface GlyphPreviewProps {
     glyph: Glyph;
+    twoTone: boolean;
     onClick: (glyph: Glyph) => void;
     selected?: boolean;
 }
@@ -42,7 +43,7 @@ const useClasses = makeStyles({
 })
 
 export const GlyphPreview = (props: GlyphPreviewProps) => {
-    const { glyph, onClick, selected} = props;
+    const { glyph, onClick, selected, twoTone } = props;
     const classes = useClasses();
 
     const ref = React.useRef<HTMLCanvasElement>(null);
@@ -55,15 +56,21 @@ export const GlyphPreview = (props: GlyphPreviewProps) => {
         context.fillStyle = "white";
         context.fillRect(0, 0, canvas.width, canvas.height);
 
-        context.fillStyle = "black";
+        if (!glyph) return;
+
         for (let x = 0; x < glyph.width; x++) {
             for (let y = 0; y < glyph.height; y++) {
-                if (getPixel(glyph, x, y)) {
+                if (twoTone && getPixel(glyph, x, y, 1)) {
+                    context.fillStyle = "red";
+                    context.fillRect(x, y, 1, 1);
+                }
+                else if (getPixel(glyph, x, y, 0)) {
+                    context.fillStyle = "black";
                     context.fillRect(x, y, 1, 1);
                 }
             }
         }
-    }, [glyph]);
+    }, [glyph, twoTone]);
 
     const onButtonClick = React.useCallback(() => {
         onClick(glyph);

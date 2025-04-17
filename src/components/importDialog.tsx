@@ -1,6 +1,7 @@
 import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogProps, DialogSurface, DialogTitle, DialogTrigger, Input, Label, Title3, shorthands, makeStyles, useId } from "@fluentui/react-components";
 import { Font, deserializeFont } from "../lib/font";
 import React from "react";
+import { parsePlaydateFont } from "../lib/playdate";
 
 export interface ImportDialogProps extends Partial<DialogProps> {
     onFontUpdate: (newValue: Font) => void;
@@ -29,10 +30,17 @@ export const ImportDialog = (props: ImportDialogProps) => {
             const text = await file.text();
 
             try {
-                const font = deserializeFont(text);
+                let font: Font;
+                if (file.name.toLowerCase().endsWith(".fnt")) {
+                    font = await parsePlaydateFont(text);
+                }
+                else {
+                    font = deserializeFont(text);
+                }
                 onFontUpdate(font);
             }
             catch(e) {
+                console.error(e);
             }
         })();
     }, [onFontUpdate, file]);
@@ -59,7 +67,7 @@ export const ImportDialog = (props: ImportDialogProps) => {
                             <input
                                 type="file"
                                 id={id}
-                                accept="application/json"
+                                accept="application/json,.fnt"
                                 onChange={onChange}
                                 ref={ref}
                             />
