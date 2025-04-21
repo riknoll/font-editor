@@ -52,7 +52,7 @@ export const GlyphEditor = (props: GlyphEditorProps) => {
     }, [onFontUpdate, currentGlyph]);
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100vw" }}>
             <div className={classes.container}>
                 <div>
                     <GlyphActions
@@ -83,9 +83,11 @@ export const GlyphEditor = (props: GlyphEditorProps) => {
                     defaultValue={testText}
                     onChange={(ev, data) => setTestText(data.value)}
                 />
-                <FontPreview
-                    text={testText}
-                    font={currentFont} />
+                <div>
+                    <FontPreview
+                        text={testText}
+                        font={currentFont} />
+                </div>
             </div>
         </div>
     );

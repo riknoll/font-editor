@@ -1,4 +1,4 @@
-import { Font, trimGlyph } from "./font";
+import { Font, trimSortKern } from "./font";
 import { Glyph, createGlyph, getPixel } from "./glyph";
 
 const CHARACTERS_PER_LINE = 10;
@@ -6,6 +6,8 @@ const CHARACTERS_PER_LINE = 10;
 export function renderPreview(font: Font, text: string, canvas: HTMLCanvasElement, width?: number, height?: number, backgroundFill?: string) {
     const trimmedGlyphs: {[index: string]: Glyph} = {};
     const placeHolderGlyph = createGlyph(font.meta, "");
+
+    font = trimSortKern(font);
 
     for (let i = 0; i < text.length; i++) {
         const char = text.charAt(i);
@@ -20,23 +22,17 @@ export function renderPreview(font: Font, text: string, canvas: HTMLCanvasElemen
                 trimmedGlyphs[char] = placeHolderGlyph;
                 continue;
             }
-            const trimmed = trimGlyph(glyph, font);
 
-            if (!trimmed) {
-                trimmedGlyphs[char] = placeHolderGlyph;
-                continue;
-            }
-
-            trimmedGlyphs[char] = trimmed[0];
+            trimmedGlyphs[char] = glyph;
         }
     }
 
     const maxWidth = width || ((font.meta.defaultWidth + font.meta.letterSpacing) * CHARACTERS_PER_LINE);
-    canvas.width = maxWidth;
 
     const lines: string[] = [];
     let lineStart = 0;
     let lineWidth = 0;
+    let widthSinceLastSpace = 0;
     let lastSpace = 0;
 
     for (let i = 0; i < text.length; i++) {
@@ -46,6 +42,7 @@ export function renderPreview(font: Font, text: string, canvas: HTMLCanvasElemen
         if (char === " ") {
             lineWidth += font.meta.wordSpacing;
             lastSpace = i;
+            widthSinceLastSpace = 0;
         }
         else if (!trimmedGlyphs[char]) {
             continue;
@@ -53,24 +50,27 @@ export function renderPreview(font: Font, text: string, canvas: HTMLCanvasElemen
         else {
             const glyph = trimmedGlyphs[char]!;
             lineWidth += glyph.width + glyph.xOffset + font.meta.letterSpacing;
+            widthSinceLastSpace += glyph.width + glyph.xOffset + font.meta.letterSpacing
         }
 
-
-        if (lineWidth > maxWidth - 10) {
+        if (lineWidth > maxWidth) {
             if (lastSpace > lineStart) {
                 lines.push(text.substring(lineStart, lastSpace));
                 lineStart = lastSpace + 1;
+                lineWidth = widthSinceLastSpace;
             }
             else {
                 lines.push(text.substring(lineStart, i));
                 lineStart = i;
+                lineWidth = 0;
             }
-            lineWidth = 0;
+            widthSinceLastSpace = 0;
         }
         else if (nextChar && char !== " ") {
             const kernEntry = trimmedGlyphs[char].kernEntries.find(c => c.character === nextChar);
             if (kernEntry) {
                 lineWidth += kernEntry.offset;
+                widthSinceLastSpace += kernEntry.offset;
             }
         }
     }

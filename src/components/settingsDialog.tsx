@@ -23,6 +23,7 @@ export const SettingsDialog = (props: SettingsDialogProps) => {
     const classes = useClasses();
 
     const [twoTone, setTwoTone] = React.useState(font.meta.twoTone);
+    const [autoKern, setAutoKern] = React.useState(font.meta.autoKern);
 
     const kernWidthRef = React.useRef<HTMLInputElement>(null);
     const defaultHeightRef = React.useRef<HTMLInputElement>(null);
@@ -111,7 +112,8 @@ export const SettingsDialog = (props: SettingsDialogProps) => {
             letterSpacing: validate(values[6], font.meta.letterSpacing),
             wordSpacing: validate(values[7], font.meta.wordSpacing),
             lineSpacing: validate(values[8], font.meta.lineSpacing),
-            twoTone: twoTone
+            twoTone: twoTone,
+            autoKern: autoKern
         };
 
         onFontUpdate(changeFontMeta(font, newMeta));
@@ -148,6 +150,14 @@ export const SettingsDialog = (props: SettingsDialogProps) => {
                                 label="Two-Tone"
                                 checked={twoTone}
                                 onChange={(ev, data) => setTwoTone(data.checked as boolean)}
+                            />
+                        </div>
+                        <div>
+                            <Checkbox
+                                labelPosition="before"
+                                label="Auto kern"
+                                checked={!!autoKern}
+                                onChange={(ev, data) => setAutoKern(data.checked as boolean)}
                             />
                         </div>
                         <div>

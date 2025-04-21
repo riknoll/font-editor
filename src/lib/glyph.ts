@@ -13,6 +13,7 @@ export interface Glyph {
     layers: Uint8Array[];
 
     kernEntries: KernTableEntry[]
+    encoded?: Uint8Array[];
 }
 
 interface KernTableEntry {
@@ -38,6 +39,8 @@ export function clearGlyph(g: Glyph) {
 }
 
 export function getPixel(g: Glyph, x: number, y: number, layer: number) {
+    if (x < 0 || x >= g.width || y < 0 || y >= g.height) return false;
+
     const cellIndex = x + g.width * y;
     const index = cellIndex >> 3;
     const offset = cellIndex & 7;

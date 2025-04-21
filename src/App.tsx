@@ -23,7 +23,8 @@ if (!font?.glyphs.length) {
         letterSpacing: 1,
         wordSpacing: 5,
         lineSpacing: 1,
-        twoTone: true
+        twoTone: true,
+        autoKern: true
     });
 }
 

@@ -1,5 +1,6 @@
 import { NumberFormat, setNumber, uint8ArrayToHex } from "./buffer";
 import { createGlyph, deserializeGlyph, getPixel, Glyph, serializeGlyph, setPixel } from "./glyph";
+import { autoKernFont } from "./kern";
 
 export interface FontMeta {
     monospace?: boolean;
@@ -33,6 +34,9 @@ export interface FontMeta {
 
     // If true, each glyph can use two colors
     twoTone: boolean;
+
+    // If true, automatically kern font
+    autoKern: boolean;
 }
 
 const defaultCharacters = `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,?!:;"'*+-=<>()[]{}/\\#$%&@^_\`|~`;
@@ -170,10 +174,8 @@ const V2_DUAL_TONE_FONT_MAGIC = 0x68f119dd;
  */
 
 export function hexEncodeFont(font: Font) {
-    const glyphs = (font.glyphs
-        .map(g => trimGlyph(g, font))
-        .filter(e => !!e) as ([Glyph, Uint8Array[]])[])
-        .sort((a, b) => a[0].character.charCodeAt(0) - b[0].character.charCodeAt(0));
+    font = trimSortKern(font);
+    const glyphs = font.glyphs;
 
     const numGlyphs = glyphs.length;
     const headerBuf = new Uint8Array(13 + 4 * numGlyphs);
@@ -191,7 +193,8 @@ export function hexEncodeFont(font: Font) {
     const bitmaps = [];
     for (let i = 0; i < numGlyphs; i++) {
         const offset = 13 + 4 * i;
-        const [trimmedGlyph, layers] = glyphs[i];
+        const trimmedGlyph = glyphs[i];
+        const layers = trimmedGlyph.encoded!;
 
         setNumber(headerBuf, NumberFormat.UInt16LE, offset, trimmedGlyph.character.charCodeAt(0));
         setNumber(headerBuf, NumberFormat.UInt16LE, offset + 2, pixelBytes);
@@ -247,7 +250,7 @@ export function hexEncodeFont(font: Font) {
     return uint8ArrayToHex(outBuffer);
 }
 
-export function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8Array[]] | undefined {
+export function trimGlyph(glyph: Glyph, font: Font): Glyph | undefined {
     let minX = glyph.width;
     let maxX = 0;
     let minY = glyph.height;
@@ -301,7 +304,9 @@ export function trimGlyph(glyph: Glyph, font: Font): [Glyph, Uint8Array[]] | und
                 getPixel(glyph, minX + x, minY + y, i) ? 1 : 0)
     );
 
-    return [newGlyph, encoded];
+    newGlyph.encoded = encoded;
+
+    return newGlyph
 }
 
 function byteHeight(h: number) {
@@ -323,4 +328,21 @@ function f4EncodeImg(w: number, h: number, getPix: (x: number, y: number) => num
         }
     }
     return out;
+}
+
+export function trimSortKern(font: Font) {
+    const glyphs = (font.glyphs
+        .map(g => trimGlyph(g, font))
+        .filter(e => !!e) as Glyph[])
+        .sort((a, b) => a.character.charCodeAt(0) - b.character.charCodeAt(0));
+
+    const result = new Font({
+        ...font.meta
+    }, glyphs);
+
+    if (font.meta.autoKern) {
+        autoKernFont(result);
+    }
+
+    return result;
 }

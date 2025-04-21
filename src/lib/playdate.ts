@@ -108,6 +108,7 @@ export async function parsePlaydateFont(font: string) {
         wordSpacing: characters.find(c => c.char === " ")?.width || tracking,
         lineSpacing: 1,
         twoTone: isTwoToneFont(spriteSheet),
+        autoKern: false
     }
 
     const glyphs: Glyph[] = [];
